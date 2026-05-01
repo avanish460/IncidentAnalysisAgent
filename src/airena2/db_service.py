@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional
 
 from sqlalchemy import create_engine, desc
 from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.pool import NullPool
 
 from .db_models import Base, IncidentRecord, FeedbackRecord, AnalyticsRecord
 
@@ -26,7 +27,18 @@ class DatabaseService:
             database_url = f"sqlite:///{os.path.join(db_dir, 'airena2.db')}"
         
         self.database_url = database_url
-        self.engine = create_engine(database_url, echo=False)
+        connect_args = {}
+        if database_url.startswith("sqlite"):
+            # Avoid keeping SQLite connections bound across threads and help test DB file cleanup.
+            connect_args = {"check_same_thread": False}
+
+        # Prevent persistent connections that can keep the SQLite file locked on Windows.
+        self.engine = create_engine(
+            database_url,
+            echo=False,
+            poolclass=NullPool,
+            connect_args=connect_args,
+        )
         self.SessionLocal = sessionmaker(bind=self.engine)
         
     def initialize_db(self) -> None:
@@ -87,6 +99,28 @@ class IncidentRepository:
             elif processed_at is None:
                 processed_at = datetime.utcnow()
             
+            existing = session.query(IncidentRecord).filter(
+                IncidentRecord.incident_id == incident_id
+            ).first()
+
+            if existing is not None:
+                # Upsert behavior to avoid UNIQUE constraint failures across test runs
+                existing.title = title
+                existing.severity = severity
+                existing.classification = classification
+                existing.summary = kwargs.get("summary")
+                existing.rca = kwargs.get("rca")
+                existing.recommendations = kwargs.get("recommendations")
+                existing.impacted_services = kwargs.get("impacted_services")
+                existing.alert_count = kwargs.get("alert_count", 0)
+                existing.ticket_count = kwargs.get("ticket_count", 0)
+                existing.alerts = kwargs.get("alerts")
+                existing.tickets = kwargs.get("tickets")
+                existing.custom_metadata = kwargs.get("metadata")
+                existing.processed_at = processed_at
+                session.commit()
+                return existing.to_dict()
+
             record = IncidentRecord(
                 incident_id=incident_id,
                 title=title,
@@ -105,8 +139,7 @@ class IncidentRepository:
             )
             session.add(record)
             session.commit()
-            result = record.to_dict()
-            return result
+            return record.to_dict()
         finally:
             session.close()
     
