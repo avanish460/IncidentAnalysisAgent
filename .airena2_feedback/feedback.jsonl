@@ -1,0 +1,2 @@
+{"timestamp": "2026-04-30T17:45:42.139977", "incident_id": "inc-1", "predicted_severity": "P1", "actual_severity": "P2", "predicted_impact": "service-impact", "actual_impact": null, "user_comments": "Too severe", "is_accurate": false, "correction_made": true}
+{"timestamp": "2026-05-01T01:22:09.929180", "incident_id": "inc-1", "predicted_severity": "P1", "actual_severity": "P2", "predicted_impact": "service-impact", "actual_impact": null, "user_comments": "Too severe", "is_accurate": false, "correction_made": true}

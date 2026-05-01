@@ -1,0 +1,11 @@
+{
+  "total_feedback": 2,
+  "accurate_predictions": 0,
+  "inaccurate_predictions": 2,
+  "corrections": 2,
+  "severity_misclassifications": 2,
+  "impact_misclassifications": 0,
+  "overall_accuracy": 0.0,
+  "correction_rate": 1.0,
+  "last_updated": "2026-04-30T17:45:42.142163"
+}
