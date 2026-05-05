@@ -4,6 +4,7 @@ import os
 import tempfile
 from datetime import datetime
 
+import pytest
 from airena2.data_models import IncidentEvent, AlertRecord, TicketRecord
 from airena2.db_service import DatabaseService, IncidentRepository, FeedbackRepository
 from airena2.incident_manager import IncidentStore
@@ -187,3 +188,50 @@ def test_feedback_repository():
         metrics = repo.get_metrics()
         assert metrics["total_feedback"] >= 1
         assert metrics["inaccurate_predictions"] >= 1
+
+
+def test_feedback_repository_validation_metrics():
+    """Test validation metrics calculation in feedback repository."""
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        db_url = f"sqlite:///{os.path.join(tmp_dir, 'test.db')}"
+        db_service = DatabaseService(db_url)
+        db_service.initialize_db()
+        repo = FeedbackRepository(db_service)
+
+        repo.create_feedback(
+            incident_id="inc-1",
+            predicted_severity="P1",
+            predicted_impact="service-impact",
+            actual_severity="P2",
+            actual_impact="service-impact",
+            is_accurate=False,
+            correction_made=True,
+        )
+        repo.create_feedback(
+            incident_id="inc-2",
+            predicted_severity="P4",
+            predicted_impact="informational",
+            actual_severity="P1",
+            actual_impact="service-impact",
+            is_accurate=False,
+            correction_made=True,
+        )
+        repo.create_feedback(
+            incident_id="inc-3",
+            predicted_severity="P2",
+            predicted_impact="service-impact",
+            actual_severity="P2",
+            actual_impact="service-impact",
+            is_accurate=True,
+            correction_made=False,
+        )
+
+        metrics = repo.get_metrics()
+        assert metrics["total_feedback"] == 3
+        assert metrics["precision"] == 1.0
+        assert metrics["recall"] == pytest.approx(2.0 / 3.0, rel=1e-3)
+        assert metrics["false_positive_rate"] == 0.0
+        assert metrics["false_negative_rate"] == pytest.approx(1.0 / 3.0, rel=1e-3)
+        assert metrics["routing_accuracy"] == pytest.approx(2.0 / 3.0, rel=1e-3)
+        assert metrics["severity_misclassifications"] == 2
+        assert metrics["impact_misclassifications"] == 1

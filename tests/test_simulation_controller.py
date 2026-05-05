@@ -31,6 +31,24 @@ def test_simulation_controller_run_simulation_success():
         assert "impacted_services" in result["analysis"]
 
 
+def test_simulation_controller_run_simulation_local_connector():
+    pipeline = AIPipeline()
+    incident_store = IncidentStore()
+    service_topology = ServiceTopology()
+    controller = SimulationController(pipeline, incident_store, service_topology)
+
+    result = controller.run_simulation(
+        connector_type="local",
+        scenario="degradation",
+        analyze=True,
+        store_result=False,
+    )
+
+    assert result["status"] == "success"
+    assert result["simulation"]["alert_count"] > 0
+    assert result["simulation"]["ticket_count"] > 0
+
+
 def test_simulation_controller_stores_incident():
     pipeline = AIPipeline()
     incident_store = IncidentStore()

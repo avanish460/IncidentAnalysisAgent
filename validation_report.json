@@ -1,0 +1,33 @@
+{
+  "timestamp": "2026-05-05T15:15:30.478370",
+  "phase": "Phase 4 - Validation",
+  "summary": {
+    "total_incidents_processed": 50,
+    "total_feedback_records": 19,
+    "feedback_rate": 0.3
+  },
+  "pipeline_metrics": {
+    "severity_accuracy": 0.58,
+    "impact_accuracy": 0.42,
+    "overall_accuracy": 0.5
+  },
+  "feedback_metrics": {
+    "total_feedback": 36,
+    "accurate_predictions": 29,
+    "inaccurate_predictions": 7,
+    "overall_accuracy": 0.8055555555555556,
+    "correction_rate": 0.19444444444444445,
+    "severity_misclassifications": 2,
+    "impact_misclassifications": 7,
+    "precision": 1.0,
+    "recall": 0.9523809523809523,
+    "false_positive_rate": 0.0,
+    "false_negative_rate": 0.047619047619047616,
+    "routing_accuracy": 0.9722222222222222,
+    "last_updated": "2026-05-05T15:15:30.442500"
+  },
+  "validation_status": "FAIR - Requires additional training data and tuning",
+  "recommendations": [
+    "Pipeline accuracy needs improvement - consider model retraining or feature engineering"
+  ]
+}

@@ -358,19 +358,85 @@ class FeedbackRepository:
             corrections = session.query(FeedbackRecord).filter(
                 FeedbackRecord.correction_made == 1
             ).count()
-            
-            accuracy = (accurate / total * 100) if total > 0 else 0.0
-            correction_rate = (corrections / total * 100) if total > 0 else 0.0
-            
+
+            severity_records = session.query(FeedbackRecord).filter(
+                FeedbackRecord.actual_severity.isnot(None)
+            ).all()
+            impact_records = session.query(FeedbackRecord).filter(
+                FeedbackRecord.actual_impact.isnot(None)
+            ).all()
+
+            tp = fp = fn = tn = 0
+            for record in severity_records:
+                predicted_high = self._is_high_priority(record.predicted_severity)
+                actual_high = self._is_high_priority(record.actual_severity)
+                if predicted_high and actual_high:
+                    tp += 1
+                elif predicted_high and not actual_high:
+                    fp += 1
+                elif not predicted_high and actual_high:
+                    fn += 1
+                else:
+                    tn += 1
+
+            severity_misclassifications = sum(
+                1 for record in severity_records
+                if self._normalize_severity(record.predicted_severity) != self._normalize_severity(record.actual_severity)
+            )
+            impact_misclassifications = sum(
+                1 for record in impact_records
+                if record.predicted_impact != record.actual_impact
+            )
+
+            precision = (tp / (tp + fp)) if (tp + fp) > 0 else 0.0
+            recall = (tp / (tp + fn)) if (tp + fn) > 0 else 0.0
+            false_positive_rate = (fp / (fp + tn)) if (fp + tn) > 0 else 0.0
+            false_negative_rate = (fn / (fn + tp)) if (fn + tp) > 0 else 0.0
+            routing_accuracy = (
+                (tp + tn) / len(severity_records)
+            ) if len(severity_records) > 0 else 0.0
+
+            accuracy = (accurate / total) if total > 0 else 0.0
+            correction_rate = (corrections / total) if total > 0 else 0.0
+
+            last_updated_row = (
+                session.query(FeedbackRecord.recorded_at)
+                .order_by(desc(FeedbackRecord.recorded_at))
+                .first()
+            )
+            last_updated = (
+                last_updated_row[0].isoformat()
+                if last_updated_row and last_updated_row[0] is not None
+                else None
+            )
+
             return {
                 "total_feedback": total,
                 "accurate_predictions": accurate,
                 "inaccurate_predictions": total - accurate,
                 "overall_accuracy": accuracy,
                 "correction_rate": correction_rate,
+                "severity_misclassifications": severity_misclassifications,
+                "impact_misclassifications": impact_misclassifications,
+                "precision": precision,
+                "recall": recall,
+                "false_positive_rate": false_positive_rate,
+                "false_negative_rate": false_negative_rate,
+                "routing_accuracy": routing_accuracy,
+                "last_updated": last_updated,
             }
         finally:
             session.close()
+
+    @staticmethod
+    def _normalize_severity(severity: Optional[str]) -> Optional[str]:
+        if severity is None:
+            return None
+        return str(severity).strip().upper()
+
+    @staticmethod
+    def _is_high_priority(severity: Optional[str]) -> bool:
+        return FeedbackRepository._normalize_severity(severity) in {"P1", "P2"}
 
 
 class AnalyticsRepository:

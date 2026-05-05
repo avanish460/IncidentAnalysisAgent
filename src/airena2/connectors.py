@@ -239,6 +239,9 @@ def create_connector(connector_type: str = "mock", **kwargs) -> DataConnector:
     elif connector_type == "mock":
         return SimulatorConnector('mock', scenario=scenario)
 
+    elif connector_type == "local":
+        return SimulatorConnector('local', scenario=scenario)
+
     elif connector_type in {"prometheus", "datadog", "cloudwatch", "jira", "splunk"}:
         return SimulatorConnector(connector_type, scenario=scenario)
 

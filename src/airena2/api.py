@@ -9,7 +9,6 @@ from pydantic import BaseModel, Field
 from .connectors import create_connector
 from .data_models import AlertRecord, TicketRecord
 from .db_service import DatabaseService, FeedbackRepository
-from .feedback import FeedbackCapture
 from .incident_manager import IncidentStore
 from .service_topology import ServiceTopology
 from .simulation_controller import SimulationController
@@ -95,6 +94,13 @@ class MetricsResponse(BaseModel):
     inaccurate_predictions: int = Field(..., description="Number of inaccurate predictions")
     overall_accuracy: float = Field(..., description="Overall accuracy ratio")
     correction_rate: float = Field(..., description="Correction rate ratio")
+    precision: float = Field(..., description="Precision for high-priority classification")
+    recall: float = Field(..., description="Recall for high-priority classification")
+    false_positive_rate: float = Field(..., description="False positive rate for severity classification")
+    false_negative_rate: float = Field(..., description="False negative rate for severity classification")
+    routing_accuracy: float = Field(..., description="Overall routing accuracy based on user feedback")
+    severity_misclassifications: int = Field(..., description="Count of severity misclassifications")
+    impact_misclassifications: int = Field(..., description="Count of impact misclassifications")
     last_updated: str = Field(..., description="Timestamp of last metrics update")
 
 
@@ -146,7 +152,10 @@ app = FastAPI(
 pipeline = AIPipeline()
 incident_store = IncidentStore(use_database=True)
 service_topology = ServiceTopology()
-feedback_capture = FeedbackCapture()
+# Use DB-backed feedback storage for consistent metrics across restarts.
+_feedback_db_service = DatabaseService()
+_feedback_repo = FeedbackRepository(_feedback_db_service)
+
 simulation_controller = SimulationController(pipeline, incident_store, service_topology)
 
 
@@ -345,14 +354,17 @@ async def submit_incident_feedback(incident_id: str, feedback: FeedbackRequest) 
     if not stored_incident:
         raise HTTPException(status_code=404, detail="Incident not found")
 
-    feedback_record = feedback_capture.record_feedback(
+    correction_made = (feedback.actual_severity is not None) or (feedback.actual_impact is not None)
+
+    feedback_record = _feedback_repo.create_feedback(
         incident_id=incident_id,
         predicted_severity=stored_incident.get("severity", "unknown"),
-        actual_severity=feedback.actual_severity,
         predicted_impact=stored_incident.get("classification", "informational"),
+        actual_severity=feedback.actual_severity,
         actual_impact=feedback.actual_impact,
         user_comments=feedback.user_comments or "",
         is_accurate=feedback.is_accurate,
+        correction_made=correction_made,
     )
 
     return FeedbackResponse(
@@ -380,14 +392,21 @@ async def list_services() -> List[ServiceResponse]:
 
 @app.get("/metrics", response_model=MetricsResponse)
 async def metrics() -> MetricsResponse:
-    """Retrieve feedback metrics."""
-    metrics = feedback_capture.get_metrics()
+    """Retrieve feedback metrics (DB-backed)."""
+    metrics = _feedback_repo.get_metrics()
     return MetricsResponse(
         total_feedback=metrics.get("total_feedback", 0),
         accurate_predictions=metrics.get("accurate_predictions", 0),
         inaccurate_predictions=metrics.get("inaccurate_predictions", 0),
         overall_accuracy=metrics.get("overall_accuracy", 0.0),
         correction_rate=metrics.get("correction_rate", 0.0),
+        precision=metrics.get("precision", 0.0),
+        recall=metrics.get("recall", 0.0),
+        false_positive_rate=metrics.get("false_positive_rate", 0.0),
+        false_negative_rate=metrics.get("false_negative_rate", 0.0),
+        routing_accuracy=metrics.get("routing_accuracy", 0.0),
+        severity_misclassifications=metrics.get("severity_misclassifications", 0),
+        impact_misclassifications=metrics.get("impact_misclassifications", 0),
         last_updated=metrics.get("last_updated", datetime.utcnow().isoformat()),
     )
 

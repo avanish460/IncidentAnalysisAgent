@@ -1,9 +1,9 @@
 {
-  "total_feedback": 2,
+  "total_feedback": 4,
   "accurate_predictions": 0,
-  "inaccurate_predictions": 2,
-  "corrections": 2,
-  "severity_misclassifications": 2,
+  "inaccurate_predictions": 4,
+  "corrections": 4,
+  "severity_misclassifications": 4,
   "impact_misclassifications": 0,
   "overall_accuracy": 0.0,
   "correction_rate": 1.0,

@@ -44,6 +44,7 @@ See `docs/project-plan.md` for the phased roadmap and next milestones.
    ```
 
    In `.env`, set:
+
    ```text
    OPENAI_API_KEY=your-actual-api-key-here
    OPENAI_API_BASE=https://aicafe.hcl.com/AICafeService/api/v1/subscription/openai/deployments/gpt-4.1
@@ -70,6 +71,7 @@ AIrena2.0 supports connecting to external data sources for real incident data:
 
 - **ServiceNow**: Enterprise ITSM platform integration
 - **Mock**: Test connector with sample data (default)
+- **Local**: Real-time locally generated synthetic data source for Phase 3 testing
 
 ### CLI Usage with Connectors
 
@@ -90,6 +92,7 @@ python -m airena2.main --connector servicenow --since "2024-01-14T10:00:00"
 ### API Endpoints for Connectors
 
 **`POST /fetch`** - Fetch data from external connectors
+
 ```json
 {
   "connector": "servicenow",
@@ -98,6 +101,7 @@ python -m airena2.main --connector servicenow --since "2024-01-14T10:00:00"
 ```
 
 **Response:**
+
 ```json
 {
   "alerts": [...],
@@ -196,3 +200,59 @@ curl -X POST "http://localhost:8000/analyze" \
 - correlate related alerts
 - generate a basic narrative summary
 - capture feedback and store results for future training
+
+## Phase 4: Validation and Metrics
+
+AIrena2.0 includes comprehensive validation capabilities to evaluate pipeline performance and ensure production readiness.
+
+### Validation Metrics
+
+The system tracks key performance indicators:
+
+- **Precision**: Accuracy of positive predictions
+- **Recall**: Ability to find all relevant incidents
+- **False Positive/Negative Rates**: Error analysis for classification
+- **Routing Accuracy**: Overall incident routing performance
+- **Severity/Impact Misclassifications**: Detailed error breakdown
+
+### Running Validation
+
+```powershell
+# Run validation with 50 synthetic incidents and 30% feedback rate
+python src/airena2/main.py --validate --validation-incidents 50 --validation-feedback-rate 0.3
+
+# Custom validation parameters
+python src/airena2/main.py --validate --validation-incidents 100 --validation-feedback-rate 0.5 --validation-output custom_report.json
+```
+
+### Validation Report
+
+The validation generates a comprehensive report including:
+
+- Pipeline performance metrics
+- Feedback analysis results
+- Success criteria assessment
+- Actionable recommendations
+- Production readiness status
+
+### API Metrics Endpoint
+
+Access real-time validation metrics via the API:
+
+```bash
+curl "http://localhost:8000/metrics"
+```
+
+**Response:**
+
+```json
+{
+  "total_feedback": 150,
+  "accurate_predictions": 120,
+  "overall_accuracy": 0.8,
+  "precision": 0.87,
+  "recall": 0.82,
+  "routing_accuracy": 0.85,
+  "last_updated": "2024-01-15T14:30:00Z"
+}
+```

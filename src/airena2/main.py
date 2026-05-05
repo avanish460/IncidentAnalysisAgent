@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 from datetime import datetime
 
 from .connectors import create_connector
@@ -24,11 +25,11 @@ def parse_args() -> argparse.Namespace:
                        help="Scenario for simulated connectors.")
     parser.add_argument("--db", action="store_true", help="Enable database persistence (default: enabled).")
     parser.add_argument("--no-db", action="store_true", help="Disable database persistence.")
-    parser.add_argument("--since", type=str, help="Fetch data since this datetime (ISO format).")
+    parser.add_argument("--validate", action="store_true", help="Run Phase 4 validation testing.")
+    parser.add_argument("--validation-incidents", type=int, default=50, help="Number of incidents for validation.")
+    parser.add_argument("--validation-feedback-rate", type=float, default=0.3, help="Feedback rate for validation.")
+    parser.add_argument("--validation-output", type=str, default="validation_report.json", help="Validation report output file.")
     return parser.parse_args()
-
-
-def build_sample_data() -> tuple[list[dict], list[dict]]:
     alert_data = [
         {
             "id": "A-1001",
@@ -68,6 +69,47 @@ def run() -> None:
         print(f"Starting AIrena2.0 API server on {args.host}:{args.port}")
         print(f"API documentation available at: http://{args.host}:{args.port}/docs")
         uvicorn.run(app, host=args.host, port=args.port)
+        return
+
+    if args.validate:
+        # Phase 4: Run validation testing
+        from .validation import ValidationRunner
+        from .db_service import DatabaseService
+
+        print("🚀 Starting Phase 4 Validation")
+        db_service = DatabaseService()
+        db_service.initialize_db()
+
+        try:
+            validator = ValidationRunner(db_service)
+
+            # Generate validation incidents
+            incidents = validator.generate_validation_incidents(args.validation_incidents)
+            print(f"✅ Generated {len(incidents)} validation incidents")
+
+            # Run pipeline validation
+            pipeline_results = validator.run_validation_pipeline(incidents)
+            print(f"✅ Processed {pipeline_results['total_processed']} incidents through pipeline")
+
+            # Simulate user feedback
+            feedback_results = validator.simulate_user_feedback(incidents, args.validation_feedback_rate)
+            print(f"✅ Generated {feedback_results['total_feedback']} feedback records")
+
+            # Generate validation report
+            report = validator.generate_validation_report(pipeline_results, feedback_results)
+
+            # Save report
+            with open(args.validation_output, 'w') as f:
+                json.dump(report, f, indent=2, default=str)
+
+            print(f"✅ Validation report saved to {args.validation_output}")
+            print(f"\n📊 Validation Status: {report['validation_status']}")
+
+        except Exception as e:
+            print(f"❌ Validation failed: {e}")
+            raise
+        finally:
+            db_service.close()
         return
 
     if args.simulate:
